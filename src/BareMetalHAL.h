@@ -2,7 +2,7 @@
 #define BAREMETALHAL_H
 
 #ifndef NO_ARDUINO
-#error "BareMetalHAL is only needed off Arduino - gate #include <BareMetalHAL.h> behind #if defined(NO_ARDUINO) in your own code, don't include it unconditionally."
+#error "#include <BareMetalHAL.h> must be gated behind #if defined(NO_ARDUINO)"
 #endif
 
 // Selects one platform folder based on which HAL_xxx flag is defined -
@@ -16,7 +16,7 @@
 #include "avr/UartHAL.h"
 #include "avr/MemoryHAL.h"
 #else
-#error "BareMetalHAL: no supported HAL_xxx target defined. Supported: HAL_AVR."
+#error "BareMetalHAL: Undefined or unsupported -DHAL_xxx flag"
 #endif
 
 #endif

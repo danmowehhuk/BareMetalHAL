@@ -1,10 +1,6 @@
 #ifndef BAREMETALHAL_AVR_MEMORYHAL_H
 #define BAREMETALHAL_AVR_MEMORYHAL_H
 
-#if !defined(HAL_AVR)
-#error "BareMetalHAL/avr/MemoryHAL.h: no non-Arduino target selected (define HAL_AVR)."
-#endif
-
 // Declared at file scope deliberately, not inside the function body below:
 // a block-scope `extern` declared inside a function nested in a namespace
 // binds to that namespace (BareMetalHAL::__heap_start), not the real

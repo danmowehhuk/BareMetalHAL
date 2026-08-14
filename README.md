@@ -46,8 +46,7 @@ of them.
 ## The contract: what every platform folder must provide
 
 This is the complete interface `avr/` implements. A new platform folder
-needs to provide the same names with the same signatures and semantics -
-that's the whole job.
+needs to provide the same names with the same signatures and semantics.
 
 **`FlashHAL.h`**
 - `namespace BareMetalHAL { class FlashStr; }` - an opaque type-tag for
@@ -71,13 +70,17 @@ that's the whole job.
   unverified) can just implement this as `return *flashPtr;`.
 
 **`UartHAL.h`**
-- `namespace BareMetalHAL::Uart0 { void begin(uint32_t baud); void
+- `namespace BareMetalHAL::Uart<n> { void begin(uint32_t baud); void
   write(uint8_t b); }` - one namespace per physical UART, not a
   runtime-selected index (which UART you're wired to is a compile-time
-  fact on real hardware, never a runtime choice). Only `Uart0` exists so
-  far, since it's the only one any consuming library needs today; add
-  `Uart1`/`Uart2`/... here, in this same file, the same way across every
-  platform folder, whenever something needs a second UART.
+  fact on real hardware, never a runtime choice). The `avr/` backend
+  implements `Uart0`-`Uart3` (the ATmega2560's 4 physical UARTs), each
+  gated on its data register actually existing for the chip actually
+  being targeted (`#ifdef UDR1` etc., checked via `-mmcu`) - smaller AVR
+  chips only define `UDR0`, so trying to use a UART that doesn't
+  physically exist fails clearly at compile time ("`Uart1` has not been
+  declared") rather than either compiling wrong or failing to compile
+  at all just from including the header.
 - Both are **caller-owned**: nothing in this file may self-initialize on
   first use. A lazily-self-initializing UART is a real collision hazard
   the moment more than one library shares it in the same program - the
@@ -91,8 +94,8 @@ that's the whole job.
 
 ## Adding a new platform
 
-1. Create `src/<platform>/` with `FlashHAL.h`, `UartHAL.h`, `MemoryHAL.h`
+1. Create `src/<platform>/` with `FlashHAL.h`, `UartHAL.h`, `MemoryHAL.h`, etc.,
    implementing the contract above.
 2. Add one `#elif defined(HAL_<PLATFORM>)` branch to `BareMetalHAL.h`
-   including the three new files. That's the only other file this
+   including these new files. That's the only other file this
    touches - no consuming library's code changes.
