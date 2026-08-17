@@ -25,8 +25,8 @@
 // worth guarding explicitly if a caller ever computes bit at runtime.
 namespace BareMetalHAL {
 
-// ATmega2560's 11 usable ports. AVR skips "I" entirely (no PORTI on any
-// AVR chip - verified against avr-libc's iomxx0_1.h, not assumed).
+// The AVR family's 11 usable ports (no `PORTI` on any AVR chip -
+// verified against avr-libc's iomxx0_1.h, not assumed).
 enum class Port : uint8_t { A, B, C, D, E, F, G, H, J, K, L };
 
 constexpr uint8_t pin(Port port, uint8_t bit) {

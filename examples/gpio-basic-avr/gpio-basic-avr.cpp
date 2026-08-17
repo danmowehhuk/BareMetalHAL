@@ -1,6 +1,9 @@
 // Bare-metal AVR example proving BareMetalHAL::GpioHAL actually decodes
-// registers correctly, not just compiles - see Task 3 of
-// .claudework/plans/2026-08-16-gpio-hal.md for the full rationale.
+// registers correctly, not just compiles - see README.md's GpioHAL.h
+// section for the API this exercises. Deliberately spans three ports
+// (L, A, C) rather than one, to catch a copy-paste error in any single
+// port's case of the register-decode switch that a single-port test
+// would miss.
 //
 // Wiring (real hardware or SimulIDE): jumper PL7 to PA0. PC3 stays
 // unconnected - it's testing the internal pull-up, so an external
