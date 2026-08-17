@@ -146,7 +146,7 @@ needs to provide the same names with the same signatures and semantics.
   `begin()`: nothing in this file self-initializes, the consuming
   project's own `main()` calls this exactly once before `millis()` is
   used anywhere.
-- `uint32_t millis() -> uint32_t` - milliseconds elapsed since
+- `uint32_t millis()` - milliseconds elapsed since
   `timingInit()` was called, matching Arduino's own `millis()`
   semantics (same tick granularity, same `uint32_t` overflow
   behavior).
