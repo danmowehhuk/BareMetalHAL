@@ -57,7 +57,8 @@ mkdir -p "$BUILD_DIR"
 
 "$AVRGXX" -std=gnu++11 -Wall -Wextra -Os -DNO_ARDUINO -DHAL_AVR -DF_CPU=16000000UL -mmcu=atmega2560 \
   -I "$DIR/../../src" \
-  "$DIR/dynamic-memory-basic-avr.cpp" -o "$BUILD_DIR/dynamic-memory-basic-avr.elf"
+  "$DIR/dynamic-memory-basic-avr.cpp" "$DIR/../../src/avr/MemoryHAL.cpp" "$DIR/consumer_no_include.cpp" \
+  -o "$BUILD_DIR/dynamic-memory-basic-avr.elf"
 
 "$AVROBJCOPY" -O ihex -R .eeprom "$BUILD_DIR/dynamic-memory-basic-avr.elf" "$BUILD_DIR/dynamic-memory-basic-avr.hex"
 
