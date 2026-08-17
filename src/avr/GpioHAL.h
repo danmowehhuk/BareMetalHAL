@@ -7,22 +7,9 @@
 
 // Packs a port + bit into one uint8_t so it can pass through consuming
 // libraries' existing runtime callback function pointers (e.g.
-// Eventuino's pinSetupCallback_t = void(*)(uint8_t)) unchanged - the
-// callback signature can't carry a compile-time template parameter the
-// way BareMetalHAL::UartHAL does, since the whole point of these
-// callbacks is runtime substitutability. Bits 3-7 = port index, bits
-// 0-2 = bit index (0-7; AVR ports are 8 bits wide). Only port indices
-// 0-10 (Port::A - Port::L) are ever produced by pin() below; indices
-// 11-31 are unreachable through this factory and, not coincidentally,
-// also unhandled by GpioHAL's register-decode switch (see the facade
-// functions further down this file) - an out-of-range encoding falls
-// through to that same switch's default no-op path with no separate
-// sentinel value needed. Note pin() itself does not validate bit: a
-// caller passing bit >= 8 gets it silently truncated to bit & 0x7,
-// aliasing a different, still-valid-looking pin rather than an inert
-// no-op - only an out-of-range Port is caught (by the switch above).
-// Fine today since every call site in this PR passes a literal 0-7;
-// worth guarding explicitly if a caller ever computes bit at runtime.
+// Eventuino's pinSetupCallback_t = void(*)(uint8_t)) unchanged. 
+// Bits 3-7 = port index, bits 0-2 = bit index (0-7; AVR ports are 8 
+// bits wide).
 namespace BareMetalHAL {
 
 // The AVR family's 11 usable ports (no `PORTI` on any AVR chip -
