@@ -7,10 +7,13 @@
 # BareMetalHAL's first example - proves GpioHAL actually links and (once
 # run under SimulIDE per Task 4) actually decodes AVR registers
 # correctly, not just compiles. Mirrors TestTool's
-# examples/basic-avr/build.sh and Eventuino's
-# examples/button_basic_avr/build.sh - same toolchain-discovery and -s
+# examples/basic-avr/build.sh - same toolchain-discovery and -s
 # post-processing, since this is a bare avr-g++ build with no
-# arduino-cli involved, same as those two.
+# arduino-cli involved, same as that one.
+#
+# The -s (simulator) flag post-processes the .hex to convert extended
+# address records (Intel HEX type 02) to a plain format (type 04) that
+# SimulIDE accepts.
 
 set -euo pipefail
 
