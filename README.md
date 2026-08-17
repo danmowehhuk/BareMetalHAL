@@ -38,11 +38,14 @@ src/
     UartHAL.h
     MemoryHAL.h
     GpioHAL.h
+    TimingHAL.h
+    TimingHAL.cpp
 ```
 
-Each platform gets its own folder with the same four filenames. The
-folder *is* the implementation; `BareMetalHAL.h` only ever routes to one
-of them.
+Each platform gets its own folder implementing the contract below - most
+entries are headers, but a category may also contribute a `.cpp` file
+where one is needed (see `TimingHAL.cpp` below). The folder *is* the
+implementation; `BareMetalHAL.h` only ever routes to one of them.
 
 ## The contract: what every platform folder must provide
 
@@ -139,10 +142,47 @@ needs to provide the same names with the same signatures and semantics.
   to reject, and so no compile-time hook available the way there is for
   UART. Don't assume UART's fail-fast guarantee carries over to GPIO.
 
+**`TimingHAL.h`**
+- `void timingInit()` - configures the platform's millisecond-tick
+  hardware and enables interrupts. Caller-owned, same as `UartHAL`'s
+  `begin()`: nothing in this file self-initializes, the consuming
+  project's own `main()` calls this exactly once before `millis()` is
+  used anywhere.
+- `uint32_t millis()` - milliseconds elapsed since
+  `timingInit()` was called, matching Arduino's own `millis()`
+  semantics (same tick granularity, same `uint32_t` overflow
+  behavior).
+- **This category claims a hardware timer exclusively.** The `avr/`
+  backend uses Timer0 - on the ATmega2560 this means a `HAL_AVR`
+  consumer using `TimingHAL` cannot also use hardware PWM on pins 4
+  and 13 (`TIMER0B`/`TIMER0A`). This is a verifiable consequence of the
+  code claiming that timer's control registers, not an empirical
+  runtime claim - stated as settled fact, the same way `UartHAL`'s
+  caller-owned `begin()` requirement is stated as fact rather than
+  hedged.
+- **This is the only category with a `.cpp` file.** Every other category
+  in this library is header-only; `TimingHAL` needs external linkage for
+  the millisecond counter and its ISR, so a consuming build must compile
+  and link `src/<platform>/TimingHAL.cpp` itself - adding it to the
+  include path is not enough, since nothing in the header emits its
+  code. See `examples/timing-basic-avr/build.sh` for a worked example of
+  what that looks like in practice.
+
+  **Caveat - `timingInit()` requires `F_CPU` to be evenly divisible by
+  64000.** `avr/TimingHAL.h`'s `timingInit()` is a template on `Cpu`
+  (default `F_CPU`) guarded by `static_assert(Cpu % 64000UL == 0, ...)`
+  - a `static_assert` inside the template rejects anything else at the
+  call site. This rules out several real `F_CPU` values, including
+  20MHz, 12MHz, and a fresh ATmega328P's 1MHz factory-default fuse
+  setting; verified compiling at 16MHz and 8MHz, rejected at
+  20MHz/12MHz/1MHz.
+
 ## Adding a new platform
 
 1. Create `src/<platform>/` with `FlashHAL.h`, `UartHAL.h`, `MemoryHAL.h`,
-   `GpioHAL.h`, etc., implementing the contract above.
+   `GpioHAL.h`, `TimingHAL.h`, etc., implementing the contract above -
+   most entries are headers, but a platform may contribute source files
+   as well where a category needs one (e.g. `TimingHAL.cpp`).
 2. Add one `#elif defined(HAL_<PLATFORM>)` branch to `BareMetalHAL.h`
    including these new files. That's the only other file this
    touches - no consuming library's code changes.

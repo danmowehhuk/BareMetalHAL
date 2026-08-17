@@ -16,6 +16,7 @@
 #include "avr/UartHAL.h"
 #include "avr/MemoryHAL.h"
 #include "avr/GpioHAL.h"
+#include "avr/TimingHAL.h"
 #else
 #error "BareMetalHAL: Undefined or unsupported -DHAL_xxx flag"
 #endif
