@@ -17,7 +17,12 @@
 // also unhandled by GpioHAL's register-decode switch (see the facade
 // functions further down this file) - an out-of-range encoding falls
 // through to that same switch's default no-op path with no separate
-// sentinel value needed.
+// sentinel value needed. Note pin() itself does not validate bit: a
+// caller passing bit >= 8 gets it silently truncated to bit & 0x7,
+// aliasing a different, still-valid-looking pin rather than an inert
+// no-op - only an out-of-range Port is caught (by the switch above).
+// Fine today since every call site in this PR passes a literal 0-7;
+// worth guarding explicitly if a caller ever computes bit at runtime.
 namespace BareMetalHAL {
 
 // ATmega2560's 11 usable ports. AVR skips "I" entirely (no PORTI on any

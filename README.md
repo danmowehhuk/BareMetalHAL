@@ -95,12 +95,13 @@ needs to provide the same names with the same signatures and semantics.
 
 **`GpioHAL.h`**
 - `namespace BareMetalHAL { enum class Port : uint8_t { ... }; }` - one
-  enumerator per physical port this platform's chips can have (the `avr/`
-  backend lists `A`-`L`, the ATmega2560's 11 usable ports; AVR has no
-  `PORTI` on any chip). Unlike `UartHAL`'s per-UART namespaces, a single
-  `Port` enum covers every chip in the family - which ports actually
-  exist on the chip being targeted is handled inside the facade
-  functions below, not by which names are declared.
+  enumerator per physical port any chip in this platform's family can
+  have (the `avr/` backend lists `A`-`L`; AVR skips `I` entirely - no
+  chip defines `PORTI`). Unlike `UartHAL`'s per-UART namespaces, a
+  single `Port` enum covers every chip in the family - which ports a
+  specific chip actually has is handled inside the facade functions
+  below, not by which names are declared, so this works the same way
+  across the whole AVR family, not just the chip with the most ports.
 - `constexpr uint8_t pin(Port port, uint8_t bit)` - packs a port and bit
   index into one `uint8_t`, so a pin identity can pass through consuming
   libraries' existing runtime callback function pointers (e.g.
@@ -113,10 +114,15 @@ needs to provide the same names with the same signatures and semantics.
 - `void pinMode(uint8_t packedPin, uint8_t mode)`, `void
   digitalWrite(uint8_t packedPin, uint8_t value)`, `uint8_t
   digitalRead(uint8_t packedPin)` - the pin-level facade, taking a
-  packed pin from `pin()` above. All three run with interrupts disabled
-  around the actual register read-modify-write, matching Arduino's own
-  `pinMode`/`digitalWrite`/`digitalRead` guarantee against corruption
-  from an ISR touching the same port mid-instruction.
+  packed pin from `pin()` above. `pinMode`/`digitalWrite` wrap their
+  register read-modify-write in `cli()`/`SREG` save-restore, matching
+  the shape of Arduino's own `pinMode`/`digitalWrite` protection against
+  an ISR touching the same port mid-instruction - implemented and
+  syntax/link verified, but not yet exercised under live interrupt
+  pressure (this PR's example never calls `sei()`, and the current
+  consumer has no ISR usage), so treat it as implemented-but-unproven
+  rather than a settled guarantee. `digitalRead` is a single register
+  read, already atomic on AVR, so it's deliberately left unprotected.
 
   **Caveat - this is not the same guarantee `UartHAL` makes.** A packed
   pin identifying a port this specific chip doesn't have (e.g. `Port::L`
