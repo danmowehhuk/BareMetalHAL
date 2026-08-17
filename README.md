@@ -39,11 +39,13 @@ src/
     MemoryHAL.h
     GpioHAL.h
     TimingHAL.h
+    TimingHAL.cpp
 ```
 
-Each platform gets its own folder with the same five filenames. The
-folder *is* the implementation; `BareMetalHAL.h` only ever routes to one
-of them.
+Each platform gets its own folder implementing the contract below - most
+entries are headers, but a category may also contribute a `.cpp` file
+where one is needed (see `TimingHAL.cpp` below). The folder *is* the
+implementation; `BareMetalHAL.h` only ever routes to one of them.
 
 ## The contract: what every platform folder must provide
 
@@ -158,11 +160,20 @@ needs to provide the same names with the same signatures and semantics.
   runtime claim - stated as settled fact, the same way `UartHAL`'s
   caller-owned `begin()` requirement is stated as fact rather than
   hedged.
+- **This is the only category with a `.cpp` file.** Every other category
+  in this library is header-only; `TimingHAL` needs external linkage for
+  the millisecond counter and its ISR, so a consuming build must compile
+  and link `src/<platform>/TimingHAL.cpp` itself - adding it to the
+  include path is not enough, since nothing in the header emits its
+  code. See `examples/timing-basic-avr/build.sh` for a worked example of
+  what that looks like in practice.
 
 ## Adding a new platform
 
 1. Create `src/<platform>/` with `FlashHAL.h`, `UartHAL.h`, `MemoryHAL.h`,
-   `GpioHAL.h`, `TimingHAL.h`, etc., implementing the contract above.
+   `GpioHAL.h`, `TimingHAL.h`, etc., implementing the contract above -
+   most entries are headers, but a platform may contribute source files
+   as well where a category needs one (e.g. `TimingHAL.cpp`).
 2. Add one `#elif defined(HAL_<PLATFORM>)` branch to `BareMetalHAL.h`
    including these new files. That's the only other file this
    touches - no consuming library's code changes.
