@@ -37,9 +37,10 @@ src/
     FlashHAL.h
     UartHAL.h
     MemoryHAL.h
+    GpioHAL.h
 ```
 
-Each platform gets its own folder with the same three filenames. The
+Each platform gets its own folder with the same four filenames. The
 folder *is* the implementation; `BareMetalHAL.h` only ever routes to one
 of them.
 
@@ -92,10 +93,56 @@ needs to provide the same names with the same signatures and semantics.
   if there's no meaningful equivalent on this platform (e.g. a platform
   with virtual memory).
 
+**`GpioHAL.h`**
+- `namespace BareMetalHAL { enum class Port : uint8_t { ... }; }` - one
+  enumerator per physical port any chip in this platform's family can
+  have (the `avr/` backend lists `A`-`L`; AVR skips `I` entirely - no
+  chip defines `PORTI`). Unlike `UartHAL`'s per-UART namespaces, a
+  single `Port` enum covers every chip in the family - which ports a
+  specific chip actually has is handled inside the facade functions
+  below, not by which names are declared, so this works the same way
+  across the whole AVR family, not just the chip with the most ports.
+- `constexpr uint8_t pin(Port port, uint8_t bit)` - packs a port and bit
+  index into one `uint8_t`, so a pin identity can pass through consuming
+  libraries' existing runtime callback function pointers (e.g.
+  Eventuino's `pinSetupCallback_t = void(*)(uint8_t)`) unchanged. The
+  packed value is opaque to callers - only `pin()` produces it and only
+  the facade functions below consume it.
+- `INPUT`, `OUTPUT`, `INPUT_PULLUP`, `HIGH`, `LOW` - mode and level
+  constants. Values match Arduino's own, so a literal passed instead of
+  one of these names still behaves the same.
+- `void pinMode(uint8_t packedPin, uint8_t mode)`, `void
+  digitalWrite(uint8_t packedPin, uint8_t value)`, `uint8_t
+  digitalRead(uint8_t packedPin)` - the pin-level facade, taking a
+  packed pin from `pin()` above. `pinMode`/`digitalWrite` wrap their
+  register read-modify-write in `cli()`/`SREG` save-restore, matching
+  the shape of Arduino's own `pinMode`/`digitalWrite` protection against
+  an ISR touching the same port mid-instruction - implemented and
+  syntax/link verified, but not yet exercised under live interrupt
+  pressure (this PR's example never calls `sei()`, and the current
+  consumer has no ISR usage), so treat it as implemented-but-unproven
+  rather than a settled guarantee. `digitalRead` is a single register
+  read, already atomic on AVR, so it's deliberately left unprotected.
+
+  **Caveat - this is not the same guarantee `UartHAL` makes.** A packed
+  pin identifying a port this specific chip doesn't have (e.g. `Port::L`
+  packed on a smaller AVR chip that never defines `PORTL`) is a silent
+  no-op in `pinMode`/`digitalWrite`, and `digitalRead` returns `LOW`.
+  This is the opposite of `UartHAL`'s documented behavior, where naming a
+  UART that doesn't exist "fails clearly at compile time." The
+  difference is deliberate, not an oversight: a UART is selected by name
+  at the call site (`BareMetalHAL::Uart1::begin(...)`), so a
+  nonexistent one can simply not be declared and let the compiler catch
+  it. A GPIO pin identity, by contrast, is a runtime `uint8_t` value that
+  typically arrives through a consuming library's own runtime callback
+  function pointer - there's no name at the call site for the compiler
+  to reject, and so no compile-time hook available the way there is for
+  UART. Don't assume UART's fail-fast guarantee carries over to GPIO.
+
 ## Adding a new platform
 
-1. Create `src/<platform>/` with `FlashHAL.h`, `UartHAL.h`, `MemoryHAL.h`, etc.,
-   implementing the contract above.
+1. Create `src/<platform>/` with `FlashHAL.h`, `UartHAL.h`, `MemoryHAL.h`,
+   `GpioHAL.h`, etc., implementing the contract above.
 2. Add one `#elif defined(HAL_<PLATFORM>)` branch to `BareMetalHAL.h`
    including these new files. That's the only other file this
    touches - no consuming library's code changes.
