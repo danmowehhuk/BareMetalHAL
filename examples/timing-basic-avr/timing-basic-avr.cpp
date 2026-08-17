@@ -1,6 +1,5 @@
 // Bare-metal AVR example proving BareMetalHAL::TimingHAL actually
-// ticks at the right rate, not just compiles - see Task 4 of
-// .claudework/plans/2026-08-16-timing-hal.md for the full rationale.
+// ticks at the right rate, not just compiles.
 //
 // Cross-checks Timer0-based millis() against _delay_ms(), an
 // independent, F_CPU-calibrated NOP-loop delay that doesn't go through
