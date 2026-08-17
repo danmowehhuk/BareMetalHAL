@@ -38,9 +38,10 @@ src/
     UartHAL.h
     MemoryHAL.h
     GpioHAL.h
+    TimingHAL.h
 ```
 
-Each platform gets its own folder with the same four filenames. The
+Each platform gets its own folder with the same five filenames. The
 folder *is* the implementation; `BareMetalHAL.h` only ever routes to one
 of them.
 
@@ -139,10 +140,29 @@ needs to provide the same names with the same signatures and semantics.
   to reject, and so no compile-time hook available the way there is for
   UART. Don't assume UART's fail-fast guarantee carries over to GPIO.
 
+**`TimingHAL.h`**
+- `void timingInit()` - configures the platform's millisecond-tick
+  hardware and enables interrupts. Caller-owned, same as `UartHAL`'s
+  `begin()`: nothing in this file self-initializes, the consuming
+  project's own `main()` calls this exactly once before `millis()` is
+  used anywhere.
+- `uint32_t millis() -> uint32_t` - milliseconds elapsed since
+  `timingInit()` was called, matching Arduino's own `millis()`
+  semantics (same tick granularity, same `uint32_t` overflow
+  behavior).
+- **This category claims a hardware timer exclusively.** The `avr/`
+  backend uses Timer0 - on the ATmega2560 this means a `HAL_AVR`
+  consumer using `TimingHAL` cannot also use hardware PWM on pins 4
+  and 13 (`TIMER0B`/`TIMER0A`). This is a verifiable consequence of the
+  code claiming that timer's control registers, not an empirical
+  runtime claim - stated as settled fact, the same way `UartHAL`'s
+  caller-owned `begin()` requirement is stated as fact rather than
+  hedged.
+
 ## Adding a new platform
 
 1. Create `src/<platform>/` with `FlashHAL.h`, `UartHAL.h`, `MemoryHAL.h`,
-   `GpioHAL.h`, etc., implementing the contract above.
+   `GpioHAL.h`, `TimingHAL.h`, etc., implementing the contract above.
 2. Add one `#elif defined(HAL_<PLATFORM>)` branch to `BareMetalHAL.h`
    including these new files. That's the only other file this
    touches - no consuming library's code changes.
