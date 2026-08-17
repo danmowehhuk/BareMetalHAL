@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <avr/io.h>
+#include <avr/interrupt.h>
 
 // Packs a port + bit into one uint8_t so it can pass through consuming
 // libraries' existing runtime callback function pointers (e.g.
@@ -108,6 +109,8 @@ inline void pinMode(uint8_t packedPin, uint8_t mode) {
   volatile uint8_t *ddr, *port, *pinReg;
   if (!detail::resolvePort(packedPin >> 3, ddr, port, pinReg)) return;
   uint8_t bit = packedPin & 0x7;
+  uint8_t oldSREG = SREG;
+  cli();
   if (mode == OUTPUT) {
     *ddr |= (1 << bit);
   } else {
@@ -122,17 +125,21 @@ inline void pinMode(uint8_t packedPin, uint8_t mode) {
       *port &= ~(1 << bit);
     }
   }
+  SREG = oldSREG;
 }
 
 inline void digitalWrite(uint8_t packedPin, uint8_t value) {
   volatile uint8_t *ddr, *port, *pinReg;
   if (!detail::resolvePort(packedPin >> 3, ddr, port, pinReg)) return;
   uint8_t bit = packedPin & 0x7;
+  uint8_t oldSREG = SREG;
+  cli();
   if (value) {
     *port |= (1 << bit);
   } else {
     *port &= ~(1 << bit);
   }
+  SREG = oldSREG;
 }
 
 inline uint8_t digitalRead(uint8_t packedPin) {
