@@ -1,7 +1,13 @@
 #include "TimingHAL.h"
 
-volatile uint32_t _bareMetalHalMillisCounter = 0;
+namespace BareMetalHAL {
+namespace detail {
+
+volatile uint32_t millisCounter = 0;
+
+}  // namespace detail
+}  // namespace BareMetalHAL
 
 ISR(TIMER0_COMPA_vect) {
-  _bareMetalHalMillisCounter++;
+  BareMetalHAL::detail::millisCounter++;
 }

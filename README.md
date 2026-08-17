@@ -168,6 +168,15 @@ needs to provide the same names with the same signatures and semantics.
   code. See `examples/timing-basic-avr/build.sh` for a worked example of
   what that looks like in practice.
 
+  **Caveat - `timingInit()` requires `F_CPU` to be evenly divisible by
+  64000.** `avr/TimingHAL.h`'s `timingInit()` is a template on `Cpu`
+  (default `F_CPU`) guarded by `static_assert(Cpu % 64000UL == 0, ...)`
+  - a `static_assert` inside the template rejects anything else at the
+  call site. This rules out several real `F_CPU` values, including
+  20MHz, 12MHz, and a fresh ATmega328P's 1MHz factory-default fuse
+  setting; verified compiling at 16MHz and 8MHz, rejected at
+  20MHz/12MHz/1MHz.
+
 ## Adding a new platform
 
 1. Create `src/<platform>/` with `FlashHAL.h`, `UartHAL.h`, `MemoryHAL.h`,

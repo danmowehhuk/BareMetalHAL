@@ -21,13 +21,23 @@
 // build from ever reaching a state where this file could be linked
 // alongside Arduino's own Timer0 usage.
 
+namespace BareMetalHAL {
+
+namespace detail {
+
 // Storage for the millisecond counter lives in TimingHAL.cpp - the ISR
 // that increments it must have external linkage and exactly one
 // definition, which an inline header function can't provide (unlike
-// the rest of this HAL, which is header-only).
-extern volatile uint32_t _bareMetalHalMillisCounter;
+// the rest of this HAL, which is header-only). Namespaced (BareMetalHAL::
+// detail, matching GpioHAL.h/UartHAL.h's convention for internals not
+// part of the public contract) rather than a leading-underscore global -
+// a leading underscore at global-namespace scope is reserved to the
+// implementation, and nothing about the ISR() macro (which itself always
+// expands to a global-scope function, regardless of the namespace of
+// the variable it touches) forces this counter out of a namespace.
+extern volatile uint32_t millisCounter;
 
-namespace BareMetalHAL {
+}  // namespace detail
 
 // Configures Timer0 for a 1ms tick and enables global interrupts. Must
 // be called once, explicitly, before millis() is used anywhere - no
@@ -77,7 +87,7 @@ inline uint32_t millis() {
   // idiom as GpioHAL's pinMode/digitalWrite critical sections.
   uint8_t oldSREG = SREG;
   cli();
-  uint32_t m = _bareMetalHalMillisCounter;
+  uint32_t m = detail::millisCounter;
   SREG = oldSREG;
   return m;
 }
