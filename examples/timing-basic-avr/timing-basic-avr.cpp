@@ -10,7 +10,7 @@
 //
 // Expected serial output (9600 baud), repeating roughly every second:
 //   delta=1000ms  (or close to it - SimulIDE's own timing has some
-//   tolerance; Task 5 determines and records what's actually observed)
+//   tolerance)
 
 #include <util/delay.h>
 #include "BareMetalHAL.h"
