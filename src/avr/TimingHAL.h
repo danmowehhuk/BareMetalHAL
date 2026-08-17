@@ -21,24 +21,6 @@
 // build from ever reaching a state where this file could be linked
 // alongside Arduino's own Timer0 usage.
 
-// F_CPU must divide evenly by 64000 (prescaler 64 x desired 1000Hz
-// tick) for an exact 1ms tick with no drift - a different F_CPU needs
-// its own prescaler/OCR0A derivation, not this formula assumed
-// blindly.
-static_assert(F_CPU % 64000UL == 0,
-              "F_CPU not evenly divisible by 64000 - this prescaler/tick-rate combination doesn't produce an exact 1ms tick for this F_CPU");
-
-// uint16_t intermediate deliberately, not uint8_t - the static_assert
-// below must catch an oversized computed value before it can silently
-// truncate. Computing directly into a uint8_t would let e.g. a raw
-// value of 300 wrap to 44 before any check could catch it.
-constexpr uint16_t kOcr0aRaw = (F_CPU / 64000UL) - 1;
-
-static_assert(kOcr0aRaw <= 255,
-              "Computed OCR0A exceeds uint8_t range for this F_CPU at /64 prescale - needs a larger prescaler, this formula doesn't generalize past that point");
-
-constexpr uint8_t kOcr0aFor1ms = (uint8_t)kOcr0aRaw;
-
 // Storage for the millisecond counter lives in TimingHAL.cpp - the ISR
 // that increments it must have external linkage and exactly one
 // definition, which an inline header function can't provide (unlike
@@ -51,10 +33,40 @@ namespace BareMetalHAL {
 // be called once, explicitly, before millis() is used anywhere - no
 // HAL category in this library auto-initializes hardware (UartHAL's
 // begin() is caller-owned for the same reason).
+//
+// Templated on Cpu (defaulting to F_CPU) rather than a plain function
+// so the OCR0A derivation - and its static_asserts - only get
+// instantiated, and only fire, when a consumer actually calls
+// timingInit(). If this were file-scope or a plain (non-template)
+// function body, the static_asserts would fire the instant
+// <BareMetalHAL.h> is included at all, even by a consumer that only
+// wants UartHAL/GpioHAL and never touches Timing - breaking the
+// umbrella header for every consumer on any F_CPU this formula
+// doesn't support, not just for Timing's own users. Don't "simplify"
+// this back to a plain function.
+template <uint32_t Cpu = F_CPU>
 inline void timingInit() {
+  // F_CPU must divide evenly by 64000 (prescaler 64 x desired 1000Hz
+  // tick) for an exact 1ms tick with no drift - a different F_CPU
+  // needs its own prescaler/OCR0A derivation, not this formula assumed
+  // blindly.
+  static_assert(Cpu % 64000UL == 0,
+                "F_CPU not evenly divisible by 64000 - this prescaler/tick-rate combination doesn't produce an exact 1ms tick for this F_CPU");
+
+  // uint16_t intermediate deliberately, not uint8_t - the static_assert
+  // below must catch an oversized computed value before it can silently
+  // truncate. Computing directly into a uint8_t would let e.g. a raw
+  // value of 300 wrap to 44 before any check could catch it.
+  constexpr uint16_t ocr0aRaw = (Cpu / 64000UL) - 1;
+
+  static_assert(ocr0aRaw <= 255,
+                "Computed OCR0A exceeds uint8_t range for this F_CPU at /64 prescale - needs a larger prescaler, this formula doesn't generalize past that point");
+
+  constexpr uint8_t ocr0aFor1ms = (uint8_t)ocr0aRaw;
+
   TCCR0A = (1 << WGM01);               // CTC mode
   TCCR0B = (1 << CS01) | (1 << CS00);  // prescaler /64
-  OCR0A = kOcr0aFor1ms;
+  OCR0A = ocr0aFor1ms;
   TIMSK0 = (1 << OCIE0A);
   sei();
 }
