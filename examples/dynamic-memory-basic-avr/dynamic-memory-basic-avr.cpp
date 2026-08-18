@@ -44,6 +44,15 @@ int main() {
     Uart0::println(before);
 
     int* arr = new int[10];
+    if (arr == nullptr) {
+      // Demonstrates the documented allocation-failure contract: operator
+      // new returns null rather than throwing/terminating. Won't actually
+      // trigger on this fixed-size demo, but a real consumer copying this
+      // pattern needs to see the check, not just the happy path.
+      Uart0::println("alloc failed: arr");
+      _delay_ms(2000);
+      continue;
+    }
     for (int i = 0; i < 10; i++) {
       arr[i] = i;
     }
@@ -57,6 +66,13 @@ int main() {
     delete[] arr;
 
     int* crossTuArr = allocate_without_including_the_hal(5);
+    if (crossTuArr == nullptr) {
+      // Same contract, same reason as the arr check above - this one
+      // allocates through the cross-TU path (consumer_no_include.cpp).
+      Uart0::println("alloc failed: crossTuArr");
+      _delay_ms(2000);
+      continue;
+    }
     int crossTuSum = 0;
     for (int i = 0; i < 5; i++) {
       crossTuSum += crossTuArr[i];

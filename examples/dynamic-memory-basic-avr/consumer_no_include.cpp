@@ -6,7 +6,7 @@
 // operator new/delete defined in MemoryHAL.cpp. This is the actual
 // regression this whole category exists to prevent - a single-TU
 // example that includes BareMetalHAL.h itself would never have caught
-// the inline-emits-nothing-at--Os bug the final review found.
+// the inline-emits-nothing-at -Os bug the final review found.
 
 int* allocate_without_including_the_hal(int count) {
   int* arr = new int[count];
