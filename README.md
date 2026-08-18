@@ -37,6 +37,7 @@ src/
     FlashHAL.h
     UartHAL.h
     MemoryHAL.h
+    MemoryHAL.cpp
     GpioHAL.h
     TimingHAL.h
     TimingHAL.cpp
@@ -44,8 +45,9 @@ src/
 
 Each platform gets its own folder implementing the contract below - most
 entries are headers, but a category may also contribute a `.cpp` file
-where one is needed (see `TimingHAL.cpp` below). The folder *is* the
-implementation; `BareMetalHAL.h` only ever routes to one of them.
+where one is needed (see `TimingHAL.cpp` and `MemoryHAL.cpp` below). The
+folder *is* the implementation; `BareMetalHAL.h` only ever routes to one
+of them.
 
 ## The contract: what every platform folder must provide
 
@@ -95,6 +97,34 @@ needs to provide the same names with the same signatures and semantics.
 - `int freeMemory()` - returns free heap/stack headroom in bytes, or `-1`
   if there's no meaningful equivalent on this platform (e.g. a platform
   with virtual memory).
+- `void* operator new(size_t size)`, `void* operator new[](size_t size)`,
+  `void operator delete(void* ptr) noexcept`, `void operator
+  delete[](void* ptr) noexcept` - global (not namespaced) allocation
+  overloads, so any HAL_AVR consumer's plain `new`/`delete[]`
+  expressions link. `new`/`new[]` are **not** `noexcept` (matching the
+  standard signatures), while `delete`/`delete[]` **are** `noexcept`
+  (deallocation must never throw). On allocation failure, both `new`
+  overloads return null - never throw, never terminate - because this
+  toolchain has no exception support to throw from; matches Arduino's
+  own default (`cores/arduino/new.cpp` only terminates if
+  `NEW_TERMINATES_ON_FAILURE` is explicitly defined, which it isn't by
+  default). Scope is deliberately narrow: only what's verified needed
+  (plain `new T[n]`/`delete[]`, verified via grep across every currently
+  migrated library) - no placement new/delete, no `nothrow` overloads,
+  no C++14 sized delete. Add one of those if a future consumer actually
+  needs it.
+- **This category also has a `.cpp` file, and its usage model is
+  different from every other category in this library** - see "Using
+  dynamic memory on HAL_AVR" below. The four operators above live in
+  `MemoryHAL.cpp`, not `MemoryHAL.h`: at `-Os`, GCC fully inlines an
+  `inline`-qualified operator new/delete at every call site and emits
+  no out-of-line definition anywhere, so a translation unit that uses
+  `new`/`delete[]` but doesn't itself include `MemoryHAL.h` (e.g. a
+  consumer whose own facade header never pulls in `BareMetalHAL.h`
+  directly) would have nothing to link against - confirmed empirically.
+  So `MemoryHAL`'s contract spans two files: `MemoryHAL.h` for
+  `freeMemory()`, `MemoryHAL.cpp` for the operators, and a consuming
+  build must compile and link `src/<platform>/MemoryHAL.cpp` itself.
 
 **`GpioHAL.h`**
 - `namespace BareMetalHAL { enum class Port : uint8_t { ... }; }` - one
@@ -177,12 +207,43 @@ needs to provide the same names with the same signatures and semantics.
   setting; verified compiling at 16MHz and 8MHz, rejected at
   20MHz/12MHz/1MHz.
 
+## Using dynamic memory on HAL_AVR
+
+Every other category in this library works the way you'd expect:
+`#include <BareMetalHAL.h>`, call a function through the
+`BareMetalHAL::` namespace. Dynamic memory doesn't work that way.
+
+**`operator new`/`operator delete` need no `#include` and no function
+call at all.** They're global C++ language operators, not something you
+call through a facade - your code's own `new T[n]`/`delete[]`
+expressions use them automatically, the same way they'd use Arduino's
+own allocator if you were building for Arduino instead. The only thing
+your build needs to do is compile and link `src/avr/MemoryHAL.cpp`
+alongside your own source files:
+
+```bash
+avr-g++ ... -I path/to/BareMetalHAL/src \
+  your_program.cpp \
+  path/to/BareMetalHAL/src/avr/MemoryHAL.cpp \
+  -o your_program.elf
+```
+
+If you forget this step, your build still compiles cleanly and only
+fails at the *link* step, with `undefined reference to
+'operator new(...)'` - the exact error this category exists to
+eliminate. There's no compile-time signal that anything is missing.
+
+See `examples/dynamic-memory-basic-avr/README.md` for why that example
+has three source files instead of the one or two every other category's
+example needs.
+
 ## Adding a new platform
 
 1. Create `src/<platform>/` with `FlashHAL.h`, `UartHAL.h`, `MemoryHAL.h`,
    `GpioHAL.h`, `TimingHAL.h`, etc., implementing the contract above -
    most entries are headers, but a platform may contribute source files
-   as well where a category needs one (e.g. `TimingHAL.cpp`).
+   as well where a category needs one (e.g. `TimingHAL.cpp`,
+   `MemoryHAL.cpp`).
 2. Add one `#elif defined(HAL_<PLATFORM>)` branch to `BareMetalHAL.h`
    including these new files. That's the only other file this
    touches - no consuming library's code changes.
