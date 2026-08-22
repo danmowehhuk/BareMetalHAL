@@ -113,10 +113,19 @@ needs to provide the same names with the same signatures and semantics.
   migrated library) - no placement new/delete, no `nothrow` overloads,
   no C++14 sized delete. Add one of those if a future consumer actually
   needs it.
+- `extern "C" void __cxa_pure_virtual(void)`, `extern "C" void
+  __cxa_deleted_virtual(void)` - Itanium C++ ABI runtime-support symbols
+  a class with a pure virtual (or C++11 `= delete`d virtual) method needs
+  at link time, regardless of whether any subclass actually overrides it.
+  Mirrors Arduino's own `cores/arduino/abi.cpp` exactly: both call
+  `std::terminate()` (a local `[[gnu::weak, noreturn]]` definition
+  calling `abort()`, since there's no hosted `libstdc++` to supply
+  `std::terminate` itself), both `noreturn`.
 - **This category also has a `.cpp` file, and its usage model is
   different from every other category in this library** - see "Using
-  dynamic memory on HAL_AVR" below. The four operators above live in
-  `MemoryHAL.cpp`, not `MemoryHAL.h`: at `-Os`, GCC fully inlines an
+  dynamic memory on HAL_AVR" below. The four operators and two ABI
+  stubs above live in `MemoryHAL.cpp`, not `MemoryHAL.h`: at `-Os`, GCC
+  fully inlines an
   `inline`-qualified operator new/delete at every call site and emits
   no out-of-line definition anywhere, so a translation unit that uses
   `new`/`delete[]` but doesn't itself include `MemoryHAL.h` (e.g. a

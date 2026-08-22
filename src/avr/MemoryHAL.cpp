@@ -47,3 +47,33 @@ void operator delete(void* ptr) noexcept {
 void operator delete[](void* ptr) noexcept {
   operator delete(ptr);
 }
+
+// Itanium C++ ABI runtime-support symbols, not Arduino/avr-libc API -
+// same class of gap as operator new/delete above (Pitfall 11: nothing
+// but Arduino's own core or a hosted libstdc++ supplies these by
+// default, and neither exists in a HAL_AVR build). A class with a pure
+// virtual method gets a vtable slot pointing at __cxa_pure_virtual
+// unconditionally, in whichever translation unit defines that class's
+// "key function" (its first out-of-line non-pure virtual, typically the
+// destructor) - regardless of whether any subclass actually overrides
+// the pure virtual. __cxa_deleted_virtual is the C++11 analog for a
+// virtual explicitly marked `= delete`. Mirrors Arduino's own
+// cores/arduino/abi.cpp exactly (verified directly against the real
+// file, not assumed): both trap via std::terminate() -> abort(), both
+// noreturn.
+namespace std {
+[[gnu::weak, noreturn]] void terminate() {
+  abort();
+}
+}  // namespace std
+
+extern "C" void __cxa_pure_virtual(void) __attribute__ ((__noreturn__));
+extern "C" void __cxa_deleted_virtual(void) __attribute__ ((__noreturn__));
+
+extern "C" void __cxa_pure_virtual(void) {
+  std::terminate();
+}
+
+extern "C" void __cxa_deleted_virtual(void) {
+  std::terminate();
+}
