@@ -7,10 +7,13 @@
 // prescaler/OCR0A), the reported delta would visibly differ from the
 // requested 1000ms delay, whereas checking millis() only for monotonic
 // increase couldn't catch a wrong tick rate at all.
+// Also cross-checks delay() the same way, against the same millis()
+// ground truth.
 //
 // Expected serial output (9600 baud), repeating roughly every second:
 //   delta=1000ms  (or close to it - SimulIDE's own timing has some
 //   tolerance)
+//   delay_delta=1000ms  (or close to it, same tolerance)
 
 #include <util/delay.h>
 #include "BareMetalHAL.h"
@@ -28,6 +31,14 @@ int main() {
 
     Uart0::print("delta=");
     Uart0::print((int)delta);
+    Uart0::println("ms");
+
+    uint32_t delayStart = millis();
+    delay(1000);
+    uint32_t delayDelta = millis() - delayStart;
+
+    Uart0::print("delay_delta=");
+    Uart0::print((int)delayDelta);
     Uart0::println("ms");
   }
 }

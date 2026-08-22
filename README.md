@@ -182,6 +182,12 @@ needs to provide the same names with the same signatures and semantics.
   `timingInit()` was called, matching Arduino's own `millis()`
   semantics (same tick granularity, same `uint32_t` overflow
   behavior).
+- `void delay(uint32_t ms)` - busy-waits until at least `ms` milliseconds
+  have elapsed, matching Arduino's own `delay()` semantics. Built
+  entirely on `millis()` - no additional hardware dependency, so every
+  platform folder gets this "for free" as soon as it implements
+  `millis()` correctly. Same caller-owned precondition as `millis()`:
+  `timingInit()` must already have been called.
 - **This category claims a hardware timer exclusively.** The `avr/`
   backend uses Timer0 - on the ATmega2560 this means a `HAL_AVR`
   consumer using `TimingHAL` cannot also use hardware PWM on pins 4

@@ -92,6 +92,16 @@ inline uint32_t millis() {
   return m;
 }
 
+// Busy-waits until at least `ms` milliseconds have elapsed, matching
+// Arduino's own delay() semantics. Built entirely on top of millis() -
+// no new register access, no new hardware dependency - so it needs
+// nothing beyond what timingInit() already provides. Same caller-owned
+// precondition as millis(): timingInit() must already have been called.
+inline void delay(uint32_t ms) {
+  uint32_t start = millis();
+  while (millis() - start < ms) { }
+}
+
 }  // namespace BareMetalHAL
 
 #endif
