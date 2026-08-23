@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <util/delay.h>
 
 // Timer0-backed millisecond counter for HAL_AVR. Claims Timer0
 // exclusively - a HAL_AVR consumer wanting hardware PWM on pins 4/13
@@ -100,6 +101,17 @@ inline uint32_t millis() {
 inline void delay(uint32_t ms) {
   uint32_t start = millis();
   while (millis() - start < ms) { }
+}
+
+// Microsecond-granularity busy-wait. Cycle-exact when `us` is a
+// compile-time constant at the call site - GCC constant-folds the
+// tick computation through this inlined wrapper into avr-libc's own
+// _delay_us(). Requires optimizations enabled (any -O level except
+// -O0): avr-libc's own fast path is gated on the compiler-defined
+// __OPTIMIZE__ macro, which only -O0 leaves unset. Every build in
+// this project already builds with optimizations on.
+inline void delayMicroseconds(uint16_t us) {
+  _delay_us(us);
 }
 
 }  // namespace BareMetalHAL
