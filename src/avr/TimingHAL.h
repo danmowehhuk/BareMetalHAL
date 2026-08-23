@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <util/delay.h>
 
 // Timer0-backed millisecond counter for HAL_AVR. Claims Timer0
 // exclusively - a HAL_AVR consumer wanting hardware PWM on pins 4/13
@@ -100,6 +101,13 @@ inline uint32_t millis() {
 inline void delay(uint32_t ms) {
   uint32_t start = millis();
   while (millis() - start < ms) { }
+}
+
+// Microsecond-granularity busy-wait. Cycle-exact when `us` is a
+// compile-time constant at the call site; a non-constant value falls
+// back to slower runtime arithmetic.
+inline void delayMicroseconds(uint16_t us) {
+  _delay_us(us);
 }
 
 }  // namespace BareMetalHAL
