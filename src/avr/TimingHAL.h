@@ -106,8 +106,10 @@ inline void delay(uint32_t ms) {
 // Microsecond-granularity busy-wait. Cycle-exact when `us` is a
 // compile-time constant at the call site - GCC constant-folds the
 // tick computation through this inlined wrapper into avr-libc's own
-// _delay_us(). A non-constant value still works, but falls back to
-// that function's slower runtime path.
+// _delay_us(). Requires optimizations enabled (any -O level except
+// -O0): avr-libc's own fast path is gated on the compiler-defined
+// __OPTIMIZE__ macro, which only -O0 leaves unset. Every build in
+// this project already builds with optimizations on.
 inline void delayMicroseconds(uint16_t us) {
   _delay_us(us);
 }
