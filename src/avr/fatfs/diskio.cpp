@@ -35,16 +35,15 @@ constexpr SpiClockDiv kInitClockDiv = SpiClockDiv::DIV128;
 constexpr SpiClockDiv kDataClockDiv = SpiClockDiv::DIV4;
 
 uint8_t g_csPin;
-uint8_t g_sckPin;
-uint8_t g_mosiPin;
-uint8_t g_misoPin;
 DSTATUS g_status = STA_NOINIT;
 uint8_t g_cardType = 0;
 
-// Reclaims the SPI bus at this driver's own required settings - cheap
-// (one register write), and correct even if something else configured
-// the shared bus differently since this driver last used it.
-void reclaimBus() { spiBegin(kDataClockDiv, SpiMode::MODE0); }
+// Reclaims the SPI bus at this driver's own required clock/mode - cheap
+// (two register writes), and correct even if something else
+// reconfigured the shared bus since this driver last used it. Does not
+// touch SCK/MOSI/MISO - the application configures those once via its
+// own BareMetalHAL::spiBegin() call before f_mount().
+void reclaimBus() { spiConfigure(kDataClockDiv, SpiMode::MODE0); }
 
 void select()   { digitalWrite(g_csPin, LOW); }
 void deselect() {
@@ -105,12 +104,6 @@ void sdDiskSetCsPin(uint8_t csPin) {
   g_csPin = csPin;
 }
 
-void sdDiskSetSpiPins(uint8_t sckPin, uint8_t mosiPin, uint8_t misoPin) {
-  g_sckPin = sckPin;
-  g_mosiPin = mosiPin;
-  g_misoPin = misoPin;
-}
-
 extern "C" {
 
 DSTATUS disk_status(BYTE) {
@@ -118,12 +111,9 @@ DSTATUS disk_status(BYTE) {
 }
 
 DSTATUS disk_initialize(BYTE) {
-  pinMode(g_sckPin, OUTPUT);
-  pinMode(g_mosiPin, OUTPUT);
-  pinMode(g_misoPin, INPUT);
   pinMode(g_csPin, OUTPUT);
   digitalWrite(g_csPin, HIGH);
-  spiBegin(kInitClockDiv, SpiMode::MODE0);
+  spiConfigure(kInitClockDiv, SpiMode::MODE0);
 
   delay(10);
   for (uint8_t i = 0; i < 10; i++) spiTransfer(0xFF);

@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <avr/io.h>
+#include "GpioHAL.h"
 
 namespace BareMetalHAL {
 
@@ -19,27 +20,14 @@ enum class SpiClockDiv : uint8_t {
   DIV2, DIV4, DIV8, DIV16, DIV32, DIV64, DIV128, DIV64X2
 };
 
-// Configures this chip's hardware SPI peripheral as Master, MSB-first,
-// with the given mode and clock divider. Caller-owned, like every
-// other category here - nothing self-initializes. Calling this again
-// with different arguments is the intended way to reconfigure between
-// devices on a shared bus (e.g. a slow clock for one device's own
-// initialization sequence, a faster one for its normal operation, or
-// different settings entirely for a second device on the same bus).
-//
-// SPI pin locations (SCK/MOSI/MISO) vary across the AVR family (e.g.
-// ATmega2560: SCK=PB1/MOSI=PB2/MISO=PB3; ATmega328P:
-// SCK=PB5/MOSI=PB3/MISO=PB4) - this HAL does not assume any one chip's
-// mapping. The caller configures SCK and MOSI as OUTPUT and MISO as
-// INPUT (via GpioHAL::pinMode, using the pins for the target chip)
-// before calling this. The hardware SS pin (also chip-specific) must
-// likewise already be configured OUTPUT - the peripheral silently
-// reverts to Slave mode if SS floats or reads LOW while configured as
-// an input, per the datasheet's SPI section. Device chip-select is a
-// separate, ordinary GPIO pin the caller drives directly - this HAL
-// does not own it.
-inline void spiBegin(SpiClockDiv div = SpiClockDiv::DIV4,
-                      SpiMode mode = SpiMode::MODE0) {
+// Sets SPCR/SPSR for the given clock divider and mode, without
+// touching pins. Call this before talking to a particular device -
+// different devices sharing a bus commonly need different settings,
+// and switching between them is just this: two register writes, cheap
+// enough to call before every device's own transfer(s). Pins are
+// configured once, by spiBegin() below, not by this function.
+inline void spiConfigure(SpiClockDiv div = SpiClockDiv::DIV4,
+                          SpiMode mode = SpiMode::MODE0) {
   uint8_t spcr = (1 << SPE) | (1 << MSTR);
   switch (mode) {
     case SpiMode::MODE1: spcr |= (1 << CPHA); break;
@@ -62,6 +50,35 @@ inline void spiBegin(SpiClockDiv div = SpiClockDiv::DIV4,
 
   SPCR = spcr;
   SPSR = spsr;
+}
+
+// One-time whole-bus setup: configures SCK/MOSI as OUTPUT and MISO as
+// INPUT, then enables the SPI peripheral as Master via spiConfigure()
+// above. Caller-owned, like every other category here - call once, not
+// per device. Every SPI device on this bus shares these same 3 pins;
+// only clock/mode (spiConfigure() above) and chip-select (each
+// device's own driver) are per-device.
+//
+// sckPin/mosiPin/misoPin are packed GpioHAL pin identifiers (see
+// GpioHAL::pin()) - which physical pins these are is chip-specific, so
+// this file makes no assumption about them and states no example
+// mapping; consult the target chip's own datasheet.
+//
+// The chip's dedicated hardware SS pin (also datasheet-specific, and
+// not necessarily the same physical pin as any device's own
+// chip-select) must separately be configured OUTPUT: on this
+// peripheral, Master mode silently reverts to Slave mode if SS floats
+// or is driven low while configured as an input. If a device's own
+// chip-select happens to be wired to that same pin (as this driver's
+// SD example does), that device's own chip-select setup already
+// covers it; otherwise configure it OUTPUT directly.
+inline void spiBegin(uint8_t sckPin, uint8_t mosiPin, uint8_t misoPin,
+                      SpiClockDiv div = SpiClockDiv::DIV4,
+                      SpiMode mode = SpiMode::MODE0) {
+  pinMode(sckPin, OUTPUT);
+  pinMode(mosiPin, OUTPUT);
+  pinMode(misoPin, INPUT);
+  spiConfigure(div, mode);
 }
 
 // Full-duplex single-byte transfer: shifts `out` onto MOSI while
