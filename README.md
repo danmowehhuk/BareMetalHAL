@@ -222,6 +222,38 @@ needs to provide the same names with the same signatures and semantics.
   setting; verified compiling at 16MHz and 8MHz, rejected at
   20MHz/12MHz/1MHz.
 
+**`SpiHAL.h`**
+- `enum class SpiMode : uint8_t { MODE0, MODE1, MODE2, MODE3 }`,
+  `enum class SpiClockDiv : uint8_t { DIV2, DIV4, DIV8, DIV16, DIV32,
+  DIV64, DIV128, DIV64X2 }` - clock phase/polarity and clock-divider
+  selection. `DIV64X2` exists only because the hardware's own
+  `SPI2X`/`SPR1`/`SPR0` encoding has two bit patterns that both mean
+  `/64` - prefer `DIV64`.
+- `void spiBegin(SpiClockDiv div = DIV4, SpiMode mode = MODE0)` -
+  configures this chip's hardware SPI peripheral as Master, MSB-first,
+  with the given mode and divider. Caller-owned: nothing self-
+  initializes. Calling this again with different arguments is the
+  intended way to reconfigure between devices on a shared bus - this
+  HAL has no transaction/locking concept, so a caller sharing the bus
+  with another device's driver is responsible for reclaiming its own
+  settings before each use (the `avr/fatfs/diskio.cpp` driver does
+  exactly this).
+- `uint8_t spiTransfer(uint8_t out)` - full-duplex single-byte
+  transfer: shifts `out` onto MOSI while reading whatever comes in on
+  MISO during the same 8 clocks, and returns it.
+- **This category makes no assumption about which pins are SCK/MOSI/
+  MISO.** Those locations vary across the AVR family (e.g. ATmega2560:
+  SCK=PB1/MOSI=PB2/MISO=PB3; ATmega328P: SCK=PB5/MOSI=PB3/MISO=PB4) -
+  the caller configures them via `GpioHAL::pinMode` (SCK/MOSI as
+  `OUTPUT`, MISO as `INPUT`) before calling `spiBegin()`, the same way
+  a device's own chip-select pin is always caller-owned and never
+  touched by this file.
+- Gated on `SPCR` existing for the chip actually being targeted
+  (`#ifdef SPCR`, checked via `-mmcu`) - mirrors `UartHAL`'s `#ifdef
+  UDR1`/`UDR2`/`UDR3` guards: a chip with no hardware SPI peripheral
+  simply doesn't get `spiBegin()`/`spiTransfer()` declared, so using
+  them fails clearly at compile time rather than compiling wrong.
+
 ## Using dynamic memory on HAL_AVR
 
 Every other category in this library works the way you'd expect:

@@ -27,9 +27,24 @@ constexpr uint8_t CT_SD1   = 0x01;
 constexpr uint8_t CT_SD2   = 0x02;
 constexpr uint8_t CT_BLOCK = 0x04;
 
+// SD's own spec requires <=400kHz during CMD0-ACMD41 identification;
+// DIV128 (F_CPU/128) satisfies that at every F_CPU this family targets.
+// Once a card is identified, block I/O runs at the same DIV4 rate this
+// driver always used.
+constexpr SpiClockDiv kInitClockDiv = SpiClockDiv::DIV128;
+constexpr SpiClockDiv kDataClockDiv = SpiClockDiv::DIV4;
+
 uint8_t g_csPin;
+uint8_t g_sckPin;
+uint8_t g_mosiPin;
+uint8_t g_misoPin;
 DSTATUS g_status = STA_NOINIT;
 uint8_t g_cardType = 0;
+
+// Reclaims the SPI bus at this driver's own required settings - cheap
+// (one register write), and correct even if something else configured
+// the shared bus differently since this driver last used it.
+void reclaimBus() { spiBegin(kDataClockDiv, SpiMode::MODE0); }
 
 void select()   { digitalWrite(g_csPin, LOW); }
 void deselect() {
@@ -90,6 +105,12 @@ void sdDiskSetCsPin(uint8_t csPin) {
   g_csPin = csPin;
 }
 
+void sdDiskSetSpiPins(uint8_t sckPin, uint8_t mosiPin, uint8_t misoPin) {
+  g_sckPin = sckPin;
+  g_mosiPin = mosiPin;
+  g_misoPin = misoPin;
+}
+
 extern "C" {
 
 DSTATUS disk_status(BYTE) {
@@ -97,9 +118,12 @@ DSTATUS disk_status(BYTE) {
 }
 
 DSTATUS disk_initialize(BYTE) {
+  pinMode(g_sckPin, OUTPUT);
+  pinMode(g_mosiPin, OUTPUT);
+  pinMode(g_misoPin, INPUT);
   pinMode(g_csPin, OUTPUT);
   digitalWrite(g_csPin, HIGH);
-  spiBegin();
+  spiBegin(kInitClockDiv, SpiMode::MODE0);
 
   delay(10);
   for (uint8_t i = 0; i < 10; i++) spiTransfer(0xFF);
@@ -129,11 +153,13 @@ DSTATUS disk_initialize(BYTE) {
   deselect();
 
   g_status = g_cardType ? 0 : STA_NOINIT;
+  if (g_status == 0) reclaimBus();  // switch from init-phase clock to data-phase clock
   return g_status;
 }
 
 DRESULT disk_read(BYTE, BYTE* buff, LBA_t sector, UINT count) {
   if (g_status & STA_NOINIT) return RES_NOTRDY;
+  reclaimBus();
   uint32_t addr = (g_cardType & CT_BLOCK) ? sector : sector * 512;
 
   for (UINT block = 0; block < count; block++) {
@@ -156,6 +182,7 @@ DRESULT disk_read(BYTE, BYTE* buff, LBA_t sector, UINT count) {
 
 DRESULT disk_write(BYTE, const BYTE* buff, LBA_t sector, UINT count) {
   if (g_status & STA_NOINIT) return RES_NOTRDY;
+  reclaimBus();
   uint32_t addr = (g_cardType & CT_BLOCK) ? sector : sector * 512;
 
   for (UINT block = 0; block < count; block++) {
@@ -187,6 +214,7 @@ DRESULT disk_ioctl(BYTE, BYTE cmd, void* buff) {
   if (g_status & STA_NOINIT) return RES_NOTRDY;
   switch (cmd) {
     case CTRL_SYNC:
+      reclaimBus();
       select();
       if (waitReady(500) == 0xFF) { deselect(); return RES_OK; }
       deselect();

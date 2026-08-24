@@ -14,6 +14,9 @@ int main() {
   Uart0::begin(9600);
   timingInit();
 
+  // ATmega2560 SPI pins (verified against pins_arduino.h): SCK=PB1,
+  // MOSI=PB2, MISO=PB3. A different AVR chip would need its own mapping.
+  sdDiskSetSpiPins(pin(Port::B, 1), pin(Port::B, 2), pin(Port::B, 3));
   sdDiskSetCsPin(pin(Port::B, 0)); // D53, matches the real board's SD_CS
 
   FATFS fs;
