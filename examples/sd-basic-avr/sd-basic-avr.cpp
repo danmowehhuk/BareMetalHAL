@@ -3,6 +3,15 @@
 // Real-hardware verification only - SimulIDE cannot simulate an SD
 // card. Mounts the card, writes a known pattern to a file, reads it
 // back, and reports pass/fail over UART.
+//
+// The card must already carry a FAT12/16/32 filesystem - this build
+// has f_mkfs() disabled (FF_USE_MKFS=0 in ffconf.h), so it cannot
+// format a raw card itself, and exFAT is unsupported (FF_FS_EXFAT=0).
+// Many SDXC cards ship pre-formatted as exFAT and need reformatting to
+// FAT32 (a PC or phone can do this) before this example will mount
+// them. An unmountable card is not a crash: f_mount() returns a
+// non-FR_OK result, printed over UART, and every file operation below
+// is skipped.
 #include <string.h>
 #include <BareMetalHAL.h>
 #include "avr/fatfs/ff.h"
