@@ -222,6 +222,46 @@ needs to provide the same names with the same signatures and semantics.
   setting; verified compiling at 16MHz and 8MHz, rejected at
   20MHz/12MHz/1MHz.
 
+**`SpiHAL.h`**
+- `enum class SpiMode : uint8_t { MODE0, MODE1, MODE2, MODE3 }`,
+  `enum class SpiClockDiv : uint8_t { DIV2, DIV4, DIV8, DIV16, DIV32,
+  DIV64, DIV128, DIV64X2 }` - clock phase/polarity and clock-divider
+  selection. `DIV64X2` exists only because the hardware's own
+  `SPI2X`/`SPR1`/`SPR0` encoding has two bit patterns that both mean
+  `/64` - prefer `DIV64`.
+- `void spiBegin(uint8_t sckPin, uint8_t mosiPin, uint8_t misoPin,
+  SpiClockDiv div = DIV4, SpiMode mode = MODE0)` - one-time whole-bus
+  setup: configures SCK/MOSI as `OUTPUT` and MISO as `INPUT` (via
+  `GpioHAL::pinMode`), then enables the SPI peripheral as Master,
+  MSB-first. Caller-owned: nothing self-initializes. Call once, not per
+  device - every SPI device on a bus shares these same 3 pins. Which
+  physical pins these are is chip-specific; consult the target chip's
+  own datasheet, this file makes no assumption and states no example
+  mapping.
+- `void spiConfigure(SpiClockDiv div = DIV4, SpiMode mode = MODE0)` -
+  sets clock/mode without touching pins. Call this before talking to a
+  particular device: different devices on the same bus commonly need
+  different settings, and this HAL has no transaction/locking concept,
+  so a caller sharing the bus with another device's driver is
+  responsible for reclaiming its own settings before each use (the
+  `avr/fatfs/diskio.cpp` driver does exactly this).
+- `uint8_t spiTransfer(uint8_t out)` - full-duplex single-byte
+  transfer: shifts `out` onto MOSI while reading whatever comes in on
+  MISO during the same 8 clocks, and returns it.
+- **`spiBegin()` does not configure the chip's dedicated hardware SS
+  pin**, which is not necessarily the same physical pin as any device's
+  own chip-select. On this peripheral, Master mode silently reverts to
+  Slave mode if SS floats or is driven low while configured as an
+  input (per the datasheet's SPI section) - if a device's own
+  chip-select happens to be wired to that same pin, that device's own
+  chip-select setup already covers it; otherwise the caller configures
+  it `OUTPUT` directly.
+- Gated on `SPCR` existing for the chip actually being targeted
+  (`#ifdef SPCR`, checked via `-mmcu`) - mirrors `UartHAL`'s `#ifdef
+  UDR1`/`UDR2`/`UDR3` guards: a chip with no hardware SPI peripheral
+  simply doesn't get this category's functions declared, so using them
+  fails clearly at compile time rather than compiling wrong.
+
 ## Using dynamic memory on HAL_AVR
 
 Every other category in this library works the way you'd expect:
