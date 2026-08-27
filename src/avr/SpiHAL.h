@@ -66,12 +66,17 @@ inline void spiConfigure(SpiClockDiv div = SpiClockDiv::DIV4,
 //
 // The chip's dedicated hardware SS pin (also datasheet-specific, and
 // not necessarily the same physical pin as any device's own
-// chip-select) must separately be configured OUTPUT: on this
-// peripheral, Master mode silently reverts to Slave mode if SS floats
-// or is driven low while configured as an input. If a device's own
-// chip-select happens to be wired to that same pin (as this driver's
-// SD example does), that device's own chip-select setup already
-// covers it; otherwise configure it OUTPUT directly.
+// chip-select) must separately be configured OUTPUT, and BEFORE this
+// call, not after: this function writes MSTR=1 to SPCR, and if SS is
+// still an input reading LOW at that exact moment, the hardware
+// immediately clears MSTR back to 0 (auto-switch to Slave mode, per
+// the datasheet's SPI section) - configuring SS OUTPUT afterward does
+// not undo that once it's happened. If a device's own chip-select
+// happens to be wired to that same pin (as this driver's SD example
+// does) and that device's own chip-select setup already runs first,
+// that's sufficient; otherwise configure SS OUTPUT directly before
+// calling this. Confirmed as a real hang on real hardware from getting
+// this ordering backwards, not just a theoretical concern.
 inline void spiBegin(uint8_t sckPin, uint8_t mosiPin, uint8_t misoPin,
                       SpiClockDiv div = SpiClockDiv::DIV4,
                       SpiMode mode = SpiMode::MODE0) {
