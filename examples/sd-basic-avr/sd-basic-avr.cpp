@@ -23,10 +23,20 @@ int main() {
   Uart0::begin(9600);
   timingInit();
 
-  // This board's pins (verified against pins_arduino.h): SCK=PB1,
-  // MOSI=PB2, MISO=PB3, SD_CS=PB0/D53 (also this chip's hardware SS).
+  // This board's pins: hardware SPI SCK=PB1/MOSI=PB2/MISO=PB3 (verified
+  // against pins_arduino.h), SD module's own CS=PE7 (this board's real
+  // wiring - confirmed directly, not assumed from a generic Mega SD
+  // shield's usual SS=PB0/D53 convention). Since CS isn't wired to the
+  // chip's own hardware SS pin here, PB0 needs its own OUTPUT
+  // configuration - and it must happen BEFORE spiBegin(), not after:
+  // spiBegin() writes MSTR=1 to SPCR, and if SS is still an input
+  // reading LOW at that exact moment, the hardware immediately clears
+  // MSTR back to 0 (auto-switch to Slave mode, per the datasheet) -
+  // configuring PB0 OUTPUT afterward doesn't undo that. Confirmed as a
+  // real hang on real hardware from getting this ordering backwards.
+  pinMode(pin(Port::B, 0), OUTPUT);
   spiBegin(pin(Port::B, 1), pin(Port::B, 2), pin(Port::B, 3));
-  sdDiskSetCsPin(pin(Port::B, 0));
+  sdDiskSetCsPin(pin(Port::E, 7));
 
   FATFS fs;
   FRESULT res = f_mount(&fs, "", 1);
