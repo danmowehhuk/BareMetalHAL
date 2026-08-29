@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <avr/io.h>
+#include <avr/interrupt.h>
 #include "FlashHAL.h"
 
 // Non-obvious facts, verified against avr-libc rather than assumed:
@@ -41,7 +42,8 @@ inline void uartBegin(volatile uint8_t& ucsra, volatile uint8_t& ucsrb,
   ubrrh = (uint8_t)(baudSetting >> 8);
   ubrrl = (uint8_t)baudSetting;
   ucsrc = (1 << UCSZ01) | (1 << UCSZ00);  // 8N1
-  ucsrb = (1 << RXEN0) | (1 << TXEN0);
+  ucsrb = (1 << RXEN0) | (1 << TXEN0) | (1 << RXCIE0);  // RXEN0 was already set; RXCIE0 is new - enables the RX-complete interrupt
+  sei();  // needed for the new RX ISR to ever fire; harmless if a consumer's own timingInit() already called this
 }
 
 inline void uartWrite(volatile uint8_t& ucsra, volatile uint8_t& udr, uint8_t b) {
@@ -97,6 +99,11 @@ inline void println(const FlashStr* s) { print<Write>(s); print<Write>('\r'); pr
 // Adding a 5th UART: one more invocation below, gated the same way.
 #define BAREMETALHAL_DEFINE_UART(N) \
 namespace Uart##N { \
+namespace rxDetail { \
+  extern volatile uint8_t buffer[64]; \
+  extern volatile uint8_t head; \
+  extern volatile uint8_t tail; \
+} \
 inline void begin(uint32_t baud) { \
   detail::uartBegin(UCSR##N##A, UCSR##N##B, UCSR##N##C, UBRR##N##H, UBRR##N##L, baud); \
 } \
@@ -108,6 +115,15 @@ inline void print(const FlashStr* s) { detail::print<write>(s); } \
 inline void println(const char* s) { detail::println<write>(s); } \
 inline void println(int v) { detail::println<write>(v); } \
 inline void println(const FlashStr* s) { detail::println<write>(s); } \
+inline uint8_t available() { \
+  return (uint8_t)(rxDetail::tail - rxDetail::head) & 63; \
+} \
+inline int read() { \
+  if (rxDetail::head == rxDetail::tail) return -1; \
+  uint8_t b = rxDetail::buffer[rxDetail::head]; \
+  rxDetail::head = (rxDetail::head + 1) & 63; \
+  return b; \
+} \
 }
 
 BAREMETALHAL_DEFINE_UART(0)
