@@ -14,7 +14,11 @@
 // every second:
 //   RX: OK "6BUI-TEST"     (all 9 bytes round-tripped correctly)
 //   or
+//   RX: FAIL got N of 9 bytes, no byte mismatch (just short)
+//     (every byte that did arrive was correct - just too few of them)
+//   or
 //   RX: FAIL got N of 9 bytes, first mismatch at i=X: expected=Y actual=Z
+//     (a byte that arrived didn't match what was sent - real corruption)
 
 #include <util/delay.h>
 #include "BareMetalHAL.h"
@@ -49,6 +53,13 @@ int main() {
 
     if (received == TEST_LEN && firstMismatchIndex == 0xFF) {
       Uart0::println("RX: OK \"6BUI-TEST\"");
+    } else if (firstMismatchIndex == 0xFF) {
+      // Every byte that arrived matched - this is a short count, not corruption.
+      Uart0::print("RX: FAIL got ");
+      Uart0::print((int)received);
+      Uart0::print(" of ");
+      Uart0::print((int)TEST_LEN);
+      Uart0::println(" bytes, no byte mismatch (just short)");
     } else {
       Uart0::print("RX: FAIL got ");
       Uart0::print((int)received);
@@ -57,7 +68,7 @@ int main() {
       Uart0::print(" bytes, first mismatch at i=");
       Uart0::print((int)firstMismatchIndex);
       Uart0::print(": expected=");
-      Uart0::print((int)(firstMismatchIndex != 0xFF ? TEST_MSG[firstMismatchIndex] : 0));
+      Uart0::print((int)TEST_MSG[firstMismatchIndex]);
       Uart0::print(" actual=");
       Uart0::println((int)actualByte);
     }
