@@ -103,7 +103,7 @@ needs to provide the same names with the same signatures and semantics.
   while the buffer is full is dropped, existing buffered data is kept,
   again matching `HardwareSerial`'s own behavior rather than inventing
   a new policy. Requires global interrupts enabled (`begin()` already
-  calls `sei()` for this reason - see below) - a consumer polling
+  calls `sei()` for this reason - see above) - a consumer polling
   `available()` without ever having enabled interrupts will simply never
   see bytes arrive.
 
