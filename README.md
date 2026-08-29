@@ -87,11 +87,25 @@ needs to provide the same names with the same signatures and semantics.
   physically exist fails clearly at compile time ("`Uart1` has not been
   declared") rather than either compiling wrong or failing to compile
   at all just from including the header.
-- Both are **caller-owned**: nothing in this file may self-initialize on
-  first use. A lazily-self-initializing UART is a real collision hazard
-  the moment more than one library shares it in the same program - the
-  consuming project's own `main()`/`setup()` calls `begin()` exactly
-  once, the same job `Serial.begin()` does on Arduino.
+- All of these are **caller-owned**: nothing in this file may
+  self-initialize on first use. A lazily-self-initializing UART is a
+  real collision hazard the moment more than one library shares it in
+  the same program - the consuming project's own `main()`/`setup()`
+  calls `begin()` exactly once, the same job `Serial.begin()` does on
+  Arduino. `begin()` also calls `sei()` (enabling global interrupts, needed
+  for `available()`/`read()`'s RX ISR to fire) - harmless to call more
+  than once if a consumer's own `timingInit()` already did.
+- `uint8_t available()`, `int read()` - non-blocking: `read()` returns
+  `-1` immediately if no byte is buffered, matching Arduino's own
+  `Serial.available()`/`Serial.read()` contract exactly. Backed by a
+  64-byte interrupt-driven ring buffer per UART instance (matching
+  Arduino's own `HardwareSerial` default buffer size) - a byte arriving
+  while the buffer is full is dropped, existing buffered data is kept,
+  again matching `HardwareSerial`'s own behavior rather than inventing
+  a new policy. Requires global interrupts enabled (`begin()` already
+  calls `sei()` for this reason - see below) - a consumer polling
+  `available()` without ever having enabled interrupts will simply never
+  see bytes arrive.
 
 **`MemoryHAL.h`**
 - `int freeMemory()` - returns free heap/stack headroom in bytes, or `-1`
