@@ -33,6 +33,17 @@ int main() {
   Uart1::begin(9600);
 
   while (true) {
+    // Discard any bytes still sitting in Uart1's ring buffer before this
+    // cycle's transmission - Uart0's own pass/fail report (below) shares
+    // the same physical wire as the test string, so it loops back into
+    // Uart1 too. Without this drain, the previous cycle's report bytes
+    // (received but never read, since the read loop below stops at
+    // TEST_LEN) would still be sitting in Uart1's buffer ahead of this
+    // cycle's real test bytes, corrupting the read that follows.
+    while (Uart1::available() > 0) {
+      Uart1::read();
+    }
+
     for (uint8_t i = 0; i < TEST_LEN; i++) {
       Uart0::write((uint8_t)TEST_MSG[i]);
     }
