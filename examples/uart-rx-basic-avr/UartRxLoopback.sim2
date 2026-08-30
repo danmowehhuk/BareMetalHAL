@@ -4,6 +4,6 @@
 <mainCompProps MainCompId="mega2560-63" Package="1- mega2560_DIP" Frequency="16 MHz" ForceFreq="true" savePGM="false" Auto_Load="false" saveEepr="false" MainMcu="true" SerialMon="-1" />
 </item>
 
-<item itemtype="Connector" uid="Connector-1" startpinid="Mega-1-1" endpinid="Mega-1-19" pointList="360,60,360,70,380,70,380,60" />
+<item itemtype="Connector" uid="Connector-1" startpinid="Mega-1-14" endpinid="Mega-1-17" pointList="360,60,360,70,380,70,380,60" />
 
 </circuit>

@@ -2,13 +2,22 @@
 // (available()/read()) actually receives bytes, not just compiles.
 //
 // Requires a physical jumper wire on real hardware (and a matching
-// Connector in the SimulIDE circuit) from Uart0's TXD0 pin to Uart1's
-// RXD1 pin - Uart0 sends a fixed test string, Uart1 receives it via
-// its interrupt-driven ring buffer, and Uart0 itself reports pass/fail
-// (Uart0's own TX is unaffected by also being wired to Uart1's RX -
-// USART TX is push-pull output, driving that net doesn't stop Uart0's
-// own serial monitor connection from also reading it, assuming both
-// are simulated/wired as inputs listening to the same driven line).
+// Connector in the SimulIDE circuit) from Uart3's TXD3 pin to Uart2's
+// RXD2 pin - Uart3 sends a fixed test string, Uart2 receives it via
+// its interrupt-driven ring buffer, and Uart0 (separately, untouched
+// by the loopback wiring) reports pass/fail over the existing
+// USB-serial connection. Deliberately does NOT use Uart0 for the test
+// payload itself - Uart0 only ever needs its normal, already-present
+// USB-UART connection, so nothing extra ever needs to be tapped onto
+// that shared header.
+//
+// Uart3/Uart2 (not Uart0's own TX/RX, and not Uart1) specifically
+// because that's the instance pair actually free and wired on the real
+// dev board this was verified against - its custom header layout
+// doesn't expose every UART pin the way a standard Arduino Mega does,
+// Uart1 is hardwired to an onboard Bluetooth module (not available for
+// general use), but TXD3/RXD2 are both reachable via its "Experiment"
+// headers without touching Uart0 or Uart1 at all.
 //
 // Expected serial output (9600 baud, on Uart0), repeating roughly
 // every second:
@@ -30,31 +39,21 @@ static const uint8_t TEST_LEN = sizeof(TEST_MSG) - 1;  // exclude the trailing '
 
 int main() {
   Uart0::begin(9600);
-  Uart1::begin(9600);
+  Uart2::begin(9600);
+  Uart3::begin(9600);
 
   while (true) {
-    // Discard any bytes still sitting in Uart1's ring buffer before this
-    // cycle's transmission - Uart0's own pass/fail report (below) shares
-    // the same physical wire as the test string, so it loops back into
-    // Uart1 too. Without this drain, the previous cycle's report bytes
-    // (received but never read, since the read loop below stops at
-    // TEST_LEN) would still be sitting in Uart1's buffer ahead of this
-    // cycle's real test bytes, corrupting the read that follows.
-    while (Uart1::available() > 0) {
-      Uart1::read();
-    }
-
     for (uint8_t i = 0; i < TEST_LEN; i++) {
-      Uart0::write((uint8_t)TEST_MSG[i]);
+      Uart3::write((uint8_t)TEST_MSG[i]);
     }
 
-    _delay_ms(50);  // give the ISR time to drain Uart0's transmission into Uart1's ring buffer
+    _delay_ms(50);  // give the ISR time to drain Uart3's transmission into Uart2's ring buffer
 
     uint8_t received = 0;
     uint8_t firstMismatchIndex = 0xFF;
     char actualByte = 0;
-    while (Uart1::available() > 0 && received < TEST_LEN) {
-      int b = Uart1::read();
+    while (Uart2::available() > 0 && received < TEST_LEN) {
+      int b = Uart2::read();
       if ((char)b != TEST_MSG[received] && firstMismatchIndex == 0xFF) {
         firstMismatchIndex = received;
         actualByte = (char)b;
