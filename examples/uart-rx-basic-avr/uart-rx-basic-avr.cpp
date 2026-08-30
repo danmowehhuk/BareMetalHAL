@@ -40,7 +40,9 @@ static const uint8_t TEST_LEN = sizeof(TEST_MSG) - 1;  // exclude the trailing '
 int main() {
   Uart0::begin(9600);
   Uart2::begin(9600);
+  Uart2::enableRx();
   Uart3::begin(9600);
+  Uart3::enableRx();
 
   while (true) {
     for (uint8_t i = 0; i < TEST_LEN; i++) {

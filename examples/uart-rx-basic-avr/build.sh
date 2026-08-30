@@ -55,9 +55,13 @@ BUILD_DIR="$DIR/build"
 
 mkdir -p "$BUILD_DIR"
 
-"$AVRGXX" -std=gnu++11 -Wall -Wextra -Os -DNO_ARDUINO -DHAL_AVR -DF_CPU=16000000UL -mmcu=atmega2560 \
+"$AVRGXX" -std=gnu++11 -Wall -Wextra -Werror -Os -DNO_ARDUINO -DHAL_AVR -DF_CPU=16000000UL -mmcu=atmega2560 \
   -I "$DIR/../../src" \
-  "$DIR/uart-rx-basic-avr.cpp" "$DIR/../../src/avr/UartHAL.cpp" \
+  "$DIR/uart-rx-basic-avr.cpp" \
+  "$DIR/../../src/avr/UartHAL_rx0.cpp" \
+  "$DIR/../../src/avr/UartHAL_rx1.cpp" \
+  "$DIR/../../src/avr/UartHAL_rx2.cpp" \
+  "$DIR/../../src/avr/UartHAL_rx3.cpp" \
   -o "$BUILD_DIR/uart-rx-basic-avr.elf"
 
 "$AVROBJCOPY" -O ihex -R .eeprom "$BUILD_DIR/uart-rx-basic-avr.elf" "$BUILD_DIR/uart-rx-basic-avr.hex"
