@@ -4,3 +4,4 @@ build/
 .claudework/*
 !.claudework/.gitkeep
 .claude/worktrees/
+.superpowers/

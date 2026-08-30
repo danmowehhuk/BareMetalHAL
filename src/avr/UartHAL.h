@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <avr/io.h>
+#include <avr/interrupt.h>
 #include "FlashHAL.h"
 
 // Non-obvious facts, verified against avr-libc rather than assumed:
@@ -97,10 +98,16 @@ inline void println(const FlashStr* s) { print<Write>(s); print<Write>('\r'); pr
 // Adding a 5th UART: one more invocation below, gated the same way.
 #define BAREMETALHAL_DEFINE_UART(N) \
 namespace Uart##N { \
+namespace rxDetail { \
+  extern volatile uint8_t buffer[64]; \
+  extern volatile uint8_t head; \
+  extern volatile uint8_t tail; \
+} \
 inline void begin(uint32_t baud) { \
   detail::uartBegin(UCSR##N##A, UCSR##N##B, UCSR##N##C, UBRR##N##H, UBRR##N##L, baud); \
 } \
 inline void write(uint8_t b) { detail::uartWrite(UCSR##N##A, UDR##N, b); } \
+void enableRx(); \
 inline void print(const char* s) { detail::print<write>(s); } \
 inline void print(char c) { detail::print<write>(c); } \
 inline void print(int v) { detail::print<write>(v); } \
@@ -108,6 +115,15 @@ inline void print(const FlashStr* s) { detail::print<write>(s); } \
 inline void println(const char* s) { detail::println<write>(s); } \
 inline void println(int v) { detail::println<write>(v); } \
 inline void println(const FlashStr* s) { detail::println<write>(s); } \
+inline uint8_t available() { \
+  return (uint8_t)(rxDetail::tail - rxDetail::head) & 63; \
+} \
+inline int read() { \
+  if (rxDetail::head == rxDetail::tail) return -1; \
+  uint8_t b = rxDetail::buffer[rxDetail::head]; \
+  rxDetail::head = (rxDetail::head + 1) & 63; \
+  return b; \
+} \
 }
 
 BAREMETALHAL_DEFINE_UART(0)

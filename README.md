@@ -87,11 +87,34 @@ needs to provide the same names with the same signatures and semantics.
   physically exist fails clearly at compile time ("`Uart1` has not been
   declared") rather than either compiling wrong or failing to compile
   at all just from including the header.
-- Both are **caller-owned**: nothing in this file may self-initialize on
-  first use. A lazily-self-initializing UART is a real collision hazard
-  the moment more than one library shares it in the same program - the
-  consuming project's own `main()`/`setup()` calls `begin()` exactly
-  once, the same job `Serial.begin()` does on Arduino.
+- `void enableRx()`, `uint8_t available()`, `int read()` - RX is
+  opt-in, per instance: a consumer that only ever calls `begin()`/
+  `write()` references nothing RX-related, so nothing about RX links in
+  for that instance at all - no ring buffer, no ISR, no `RXCIE0` bit set,
+  no `sei()` call. Call `enableRx()` once per instance, after that
+  instance's own `begin()`, to turn RX on: it sets that instance's
+  `RXCIE0` bit (without disturbing the `RXEN0`/`TXEN0` bits `begin()`
+  already set), resets `head`/`tail` back to 0 (discarding any bytes left
+  over from a hypothetical earlier session), and calls `sei()` (see
+  below). `available()`/`read()` are then non-blocking - `read()` returns
+  `-1` immediately if no byte is buffered, matching Arduino's own
+  `Serial.available()`/`Serial.read()` semantics (not an exact contract
+  match: `available()` returns `uint8_t` here, not Arduino's `int`).
+  Backed by a 64-byte interrupt-driven ring buffer per UART instance
+  (matching Arduino's own `HardwareSerial` default buffer size) - a byte
+  arriving while the buffer is full is dropped, existing buffered data is
+  kept, again matching `HardwareSerial`'s own behavior rather than
+  inventing a new policy.
+- All of these are **caller-owned**: nothing in this file may
+  self-initialize on first use. A lazily-self-initializing UART is a
+  real collision hazard the moment more than one library shares it in
+  the same program - the consuming project's own `main()`/`setup()`
+  calls `begin()` exactly once (and `enableRx()` once, for any instance
+  that needs RX), the same job `Serial.begin()` does on Arduino.
+  `enableRx()` calls `sei()` (enabling global interrupts, needed for its
+  own RX ISR to ever fire) - harmless to call more than once, whether
+  from another instance's `enableRx()` or a consumer's own
+  `timingInit()`.
 
 **`MemoryHAL.h`**
 - `int freeMemory()` - returns free heap/stack headroom in bytes, or `-1`
