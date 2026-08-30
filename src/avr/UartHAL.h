@@ -42,8 +42,7 @@ inline void uartBegin(volatile uint8_t& ucsra, volatile uint8_t& ucsrb,
   ubrrh = (uint8_t)(baudSetting >> 8);
   ubrrl = (uint8_t)baudSetting;
   ucsrc = (1 << UCSZ01) | (1 << UCSZ00);  // 8N1
-  ucsrb = (1 << RXEN0) | (1 << TXEN0) | (1 << RXCIE0);  // RXEN0 was already set; RXCIE0 is new - enables the RX-complete interrupt
-  sei();  // needed for the new RX ISR to ever fire; harmless if a consumer's own timingInit() already called this
+  ucsrb = (1 << RXEN0) | (1 << TXEN0);
 }
 
 inline void uartWrite(volatile uint8_t& ucsra, volatile uint8_t& udr, uint8_t b) {
@@ -108,6 +107,7 @@ inline void begin(uint32_t baud) { \
   detail::uartBegin(UCSR##N##A, UCSR##N##B, UCSR##N##C, UBRR##N##H, UBRR##N##L, baud); \
 } \
 inline void write(uint8_t b) { detail::uartWrite(UCSR##N##A, UDR##N, b); } \
+void enableRx(); \
 inline void print(const char* s) { detail::print<write>(s); } \
 inline void print(char c) { detail::print<write>(c); } \
 inline void print(int v) { detail::print<write>(v); } \
