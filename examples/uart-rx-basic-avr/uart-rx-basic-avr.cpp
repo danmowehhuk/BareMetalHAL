@@ -11,14 +11,6 @@
 // USB-UART connection, so nothing extra ever needs to be tapped onto
 // that shared header.
 //
-// Uart3/Uart2 (not Uart0's own TX/RX, and not Uart1) specifically
-// because that's the instance pair actually free and wired on the real
-// dev board this was verified against - its custom header layout
-// doesn't expose every UART pin the way a standard Arduino Mega does,
-// Uart1 is hardwired to an onboard Bluetooth module (not available for
-// general use), but TXD3/RXD2 are both reachable via its "Experiment"
-// headers without touching Uart0 or Uart1 at all.
-//
 // Expected serial output (9600 baud, on Uart0), repeating roughly
 // every second:
 //   RX: OK "6BUI-TEST"     (all 9 bytes round-tripped correctly)
