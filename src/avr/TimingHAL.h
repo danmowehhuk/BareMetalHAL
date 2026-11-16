@@ -75,6 +75,12 @@ inline void timingInit() {
 
   constexpr uint8_t ocr0aFor1ms = (uint8_t)ocr0aRaw;
 
+  // Reading the counter references TimingHAL.cpp, so an archive link
+  // pulls in its ISR even when nothing calls millis() or delay().
+  // Without the ISR, the first tick jumps to __bad_interrupt and resets
+  // the board.
+  (void)detail::millisCounter;
+
   TCCR0A = (1 << WGM01);               // CTC mode
   TCCR0B = (1 << CS01) | (1 << CS00);  // prescaler /64
   OCR0A = ocr0aFor1ms;
