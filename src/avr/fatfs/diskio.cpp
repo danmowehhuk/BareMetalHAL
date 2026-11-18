@@ -119,7 +119,13 @@ DSTATUS disk_initialize(BYTE) {
   for (uint8_t i = 0; i < 10; i++) spiTransfer(0xFF);
 
   g_cardType = 0;
-  if (sendCommand(CMD0, 0) == 1) {
+  // A card that stayed powered through an MCU reset may still be busy with
+  // the previous program's transfer, so it can miss the first CMD0.
+  uint8_t idle = 0;
+  for (uint8_t attempt = 0; attempt < 10 && idle != 1; attempt++) {
+    idle = sendCommand(CMD0, 0);
+  }
+  if (idle == 1) {
     uint32_t start = millis();
     if (sendCommand(CMD8, 0x1AA) == 1) {
       uint8_t r7[4];
